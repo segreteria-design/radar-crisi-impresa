@@ -1,19 +1,34 @@
-# Radar Crisi d’Impresa — Web App 2.1
+# Radar Crisi d'Impresa — Web App 3.0
 
-## Uso online
-Questa cartella è pronta per Streamlit Community Cloud.
-1. Caricare i file in un repository GitHub privato.
-2. In Streamlit Community Cloud scegliere **Create app**.
-3. Selezionare il repository e indicare `app.py` come file principale.
-4. Avviare il deploy.
+Versione pre-produzione con accesso riservato e privacy by design.
 
-L'utente finale vedrà solo una pagina web: **Carica bilancio PDF → Analizza bilancio → Verifica dati → Risultato Radar**.
+## File da aggiornare su GitHub
+Caricare/sostituire:
+- `app.py`
+- `radar_engine.py`
+- `security.py`
+- `reporting.py`
+- `requirements.txt`
+- `packages.txt`
 
-## Uso locale facoltativo
-`pip install -r requirements.txt` e poi `streamlit run app.py`.
-Serve Tesseract con lingua italiana per i PDF scansiti.
+La cartella `.streamlit` contiene solo `secrets.example.toml`: **non caricare mai credenziali reali nel repository**.
 
-## Limiti del prototipo
-- OCR e riconoscimento delle voci sono automatici ma richiedono sempre verifica umana.
-- L'archivio SQLite è locale all'istanza; per produzione multiutente va sostituito con database persistente.
-- Lo scoring è uno screening quantitativo/qualitativo, non una valutazione legale, fiscale o finanziaria definitiva.
+## Configurazione accesso su Streamlit Community Cloud
+Nella dashboard dell'app: **Settings / Impostazioni > Secrets** e inserire:
+
+```toml
+RADAR_USER = "nomeutente"
+RADAR_PASSWORD = "password-lunga-e-unica"
+```
+
+Salvare. L'app si riavvia e mostra la schermata di login.
+
+## Protezioni della 3.0
+- PDF elaborato in memoria e non salvato intenzionalmente dall'app.
+- Nessun archivio persistente: portafoglio solo di sessione.
+- Blocco scoring su dati incompleti/anomali.
+- Conferma umana obbligatoria.
+- Scheda decisionale e checklist documentale automatica.
+
+## Limite importante
+Questa versione è pre-produzione. Prima di usare bilanci/documenti professionali reali, verificare privacy, DPA/condizioni hosting, localizzazione e retention dei dati, autenticazione multiutente, logging, database e backup.
