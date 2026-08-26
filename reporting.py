@@ -6,13 +6,31 @@ from openpyxl.utils import get_column_letter
 DARK='17365D'; WHITE='FFFFFF'; BLUE='D9EAF7'; ORANGE='FCE4D6'; GREEN='E2F0D9'
 
 
-def decision_level(sc, quality, red_flag=False):
+def distress_profile(sc):
+    if sc.get('composito', 0) < 10:
+        return 'NON DISTRESSED'
+    vals={'FISCALE':sc.get('fiscale',0)/15,'FINANZIARIA':sc.get('finanziario',0)/15,'COMMERCIALE':sc.get('commerciale',0)/10}
+    ordered=sorted(vals.items(), key=lambda x:x[1], reverse=True)
+    if ordered[0][1] - ordered[1][1] < 0.12:
+        return 'MISTA'
+    return ordered[0][0]
+
+def decision_level(d, sc, quality, red_flag=False):
     if red_flag:
         return 'SCARTA / EDD', 'Red flag grave o KO preliminare.'
     if not quality.get('reliable'):
         return 'DATI INSUFFICIENTI', 'Lo scoring non è utilizzabile finché i dati essenziali non sono verificati.'
-    if sc['fit']=='FIT-A' and sc['totale'] >= 70:
-        return 'PRIORITÀ', 'Target coerente con la tesi di turnaround e meritevole di pre-due-diligence prioritaria.'
+    rev=d.get('ricavi_correnti'); e=d.get('ebitda'); net=d.get('risultato_netto'); eq=d.get('patrimonio_netto'); ca=d.get('attivo_circolante'); cl=d.get('passivita_correnti')
+    # Viability gate: il distress non deve premiare un business strutturalmente distrutto.
+    if e is not None and e <= 0 and net is not None and net < 0:
+        return 'SCARTA / EDD', 'Viability gate non superata: EBITDA non positivo e perdita netta. Il distress elevato non costituisce di per sé opportunità di turnaround.'
+    if rev and eq is not None and eq < -0.25*rev and ca is not None and cl and ca/cl < 0.50:
+        return 'SCARTA / EDD', 'Squilibrio patrimoniale e di liquidità estremo: richiede analisi concorsuale/EDD prima di qualsiasi tesi di investimento.'
+    # Distress floor: una società sana non deve essere promossa dai punteggi qualitativi neutri.
+    if sc.get('composito',0) < 10:
+        return 'SCARTA', 'Distress insufficiente rispetto alla strategia Special Situations; non è un target prioritario.'
+    if sc['fit']=='FIT-A' and sc['totale'] >= 65 and sc.get('continuita',0) >= 10:
+        return 'PRIORITÀ', 'Target coerente con la tesi Tax Turnaround, con continuità economica preliminare sufficiente e meritevole di pre-due-diligence prioritaria.'
     if sc['fit']=='FIT-A' or sc['totale'] >= 60:
         return 'APPROFONDISCI', 'Target da sottoporre a verifica documentale e analisi professionale.'
     if sc['totale'] >= 45:
@@ -37,6 +55,7 @@ def build_thesis(d, sc):
     r=build_ratios(d)
     strengths=[]; risks=[]
     if d.get('ebitda') is not None and d.get('ebitda')>0: strengths.append('EBITDA positivo: esiste continuità economica residua da verificare e normalizzare.')
+    if d.get('ebitda') is not None and d.get('ebitda')<=0: risks.append('EBITDA non positivo: viability gate critica; verificare se esiste un turnaround industriale realistico prima di valorizzare la ristrutturazione del passivo.')
     if r['Debito fiscale / Ricavi'] is not None and r['Debito fiscale / Ricavi']>=0.25: strengths.append('Elevata concentrazione fiscale del passivo, coerente con la specializzazione turnaround fiscale.')
     if sc.get('fit')=='FIT-A': strengths.append('Compatibilità preliminare elevata con la strategia Tax Turnaround.')
     if d.get('patrimonio_netto') is not None and d.get('patrimonio_netto')<0: risks.append('Patrimonio netto negativo: verificare cause, perdite cumulate e presupposti di continuità.')
