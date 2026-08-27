@@ -42,7 +42,7 @@ def extract_pdf_text(data: bytes, ocr=True, max_pages=60):
     for i, p in enumerate(doc):
         if i >= max_pages:
             break
-        text = p.get_text('text') or ''
+        text = p.get_text('text', sort=True) or ''
         if ocr and len(re.sub(r'\s+', '', text)) < 120:
             pix = p.get_pixmap(matrix=fitz.Matrix(2.2, 2.2), alpha=False)
             img = Image.open(io.BytesIO(pix.tobytes('png')))
@@ -87,33 +87,53 @@ def _pages(text):
     return out
 
 
-def _row_candidate(line, label, current_year_index=0):
-    """Return first numeric column after an accounting row label."""
-    if not _label_match(line,label):
-        return None
-    nl=_norm(line); lb=_norm(label)
-    # Generic total labels must not capture sub-totals such as 'Totale debiti verso fornitori'.
-    if lb == 'totale debiti' and nl.startswith('totale debiti '):
-        rest=nl[len('totale debiti '):]
-        if rest and not rest[0].isdigit() and rest[0] not in '(-':
-            return None
-    if lb == 'totale crediti' and nl.startswith('totale crediti '):
-        rest=nl[len('totale crediti '):]
-        if rest and not rest[0].isdigit() and rest[0] not in '(-':
-            return None
-    # Reject narrative/legal lines; table rows are usually short and numeric-rich.
-    nums=_nums(line)
-    if not nums or len(line)>180:
-        return None
-    # Drop numbering before the label, e.g. "12) debiti tributari".
-    pos=_norm(line).find(_norm(label))
-    if pos>=0:
-        raw_tail=line.lower().find(label.lower())
-        tail=line[raw_tail+len(label):] if raw_tail>=0 else line
-        n2=_nums(tail)
-        if n2: nums=n2
-    return nums[current_year_index] if len(nums)>current_year_index else None
+def _strip_statutory_prefix(line):
+    """Remove Italian statutory row numbering without touching accounting amounts."""
+    return re.sub(r'^\s*(?:[A-Z]\)|[IVX]+\s*-\s*)?\s*\d+(?:[-a-z]+)?\)\s*', '', line or '', flags=re.I)
 
+
+def _generic_total_is_component(cleaned, label):
+    """For generic totals, reject rows such as 'Totale debiti verso fornitori'
+    but accept 'Totale debiti 3.384.775 ...'."""
+    lb=(label or '').strip().lower()
+    if lb not in ('totale debiti','totale crediti'):
+        return False
+    low=(cleaned or '').strip().lower()
+    idx=low.find(lb)
+    if idx < 0:
+        return False
+    tail=low[idx+len(lb):].lstrip()
+    return bool(tail and re.match(r'[a-zà-ÿ]', tail, flags=re.I))
+
+
+def _row_candidate(line, label, current_year_index=0):
+    """Return current-year numeric column from a same-line accounting row.
+
+    Critical invariant: statutory row identifiers (e.g. ``1)``, ``12)``, ``21)``)
+    are removed *before* any numeric token is considered. This prevents false
+    values such as Ricavi=1 or Utile=21.
+    """
+    if not _label_match(line, label):
+        return None
+    cleaned=_strip_statutory_prefix(line)
+    nl=_norm(cleaned); lb=_norm(label)
+    if _generic_total_is_component(cleaned, label):
+        return None
+    if len(cleaned)>180:
+        return None
+
+    # Prefer values that occur after the accounting label. If exact raw splitting
+    # is impossible because the PDF changed punctuation/apostrophes, the leading
+    # statutory code has already been removed, so numeric tokens are still safe.
+    tail=None
+    low=cleaned.lower(); raw_label=label.lower()
+    idx=low.find(raw_label)
+    if idx >= 0:
+        tail=cleaned[idx+len(label):]
+    nums=_nums(tail if tail is not None else cleaned)
+    if not nums:
+        return None
+    return nums[current_year_index] if len(nums)>current_year_index else None
 
 
 
@@ -143,14 +163,12 @@ def multiline_table_value(text, labels, page_range=None, evidence=None, key=None
                 if not lb or lb not in nl:
                     continue
                 # Require the line to be predominantly the accounting label, optionally preceded by statutory row numbering.
-                cleaned=re.sub(r'^\s*\d+(?:[-a-z]+)?\)\s*','',line,flags=re.I)
+                cleaned=_strip_statutory_prefix(line)
                 nclean=_norm(cleaned)
                 if lb not in nclean:
                     continue
                 # Generic total labels must not capture component totals.
-                if lb=='totale debiti' and nclean.startswith('totale debiti ') and nclean!='totale debiti':
-                    continue
-                if lb=='totale crediti' and nclean.startswith('totale crediti ') and nclean!='totale crediti':
+                if _generic_total_is_component(cleaned, label):
                     continue
                 # If a same-line amount really exists after the label, use it. Otherwise inspect following lines.
                 tail=cleaned.lower().split(label.lower(),1)[1] if label.lower() in cleaned.lower() else ''
@@ -193,13 +211,12 @@ def multiline_table_pair(text, labels, page_range=None, max_lookahead=6):
     for p,chunk in items:
         lines=_lines(chunk)
         for i,line in enumerate(lines):
-            cleaned=re.sub(r'^\s*\d+(?:[-a-z]+)?\)\s*','',line,flags=re.I)
+            cleaned=_strip_statutory_prefix(line)
             nclean=_norm(cleaned)
             for label in labels:
                 lb=_norm(label)
                 if not lb or lb not in nclean: continue
-                if lb=='totale debiti' and nclean.startswith('totale debiti ') and nclean!='totale debiti': continue
-                if lb=='totale crediti' and nclean.startswith('totale crediti ') and nclean!='totale crediti': continue
+                if _generic_total_is_component(cleaned, label): continue
                 tail=cleaned.lower().split(label.lower(),1)[1] if label.lower() in cleaned.lower() else ''
                 vals=_nums(tail)
                 if len(vals)<2:
@@ -314,6 +331,8 @@ def extract_company_name(text,evidence=None):
 def _pick(text, key, labels, ev, pages=None, lo=0, hi=1e13):
     return structured_value(text,labels,lo=lo,hi=hi,evidence=ev,key=key,page_range=pages)
 
+
+ENGINE_SIGNATURE='4.5-STRUCTURED-ROWS-20260827'
 
 def extract_fields_with_meta(text):
     ev={}; f={}

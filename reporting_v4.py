@@ -26,7 +26,7 @@ def _setup(ws,widths=None):
 def make_v4_excel(d,nm,adjustments,plan,actions,scenarios=None,diagnostic=None,gate=None,assumptions=None):
     wb=Workbook(); ws=wb.active; ws.title='EXECUTIVE_REPORT'
     _setup(ws,[25,22,22,22,22,22,22,22])
-    ws.merge_cells('A1:H1'); ws['A1']='RADAR TURNAROUND 4.2 — REPORT NORMALIZZATO'; ws['A1'].fill=PatternFill('solid',fgColor=NAVY); ws['A1'].font=Font(color=WHITE,bold=True,size=15)
+    ws.merge_cells('A1:H1'); ws['A1']='RADAR TURNAROUND 4.5 — REPORT NORMALIZZATO'; ws['A1'].fill=PatternFill('solid',fgColor=NAVY); ws['A1'].font=Font(color=WHITE,bold=True,size=15)
     ws.merge_cells('A3:H4'); ws['A3']='Il report separa dato reported, rettifiche professionali e dato normalizzato. Solo le rettifiche VERIFICATE modificano EBITDA e ricavi operativi. Il business plan è generabile solo dopo il Normalization Gate. Le proiezioni sono scenari gestionali e non attestazioni.'; ws['A3'].alignment=Alignment(wrap_text=True,vertical='top'); ws['A3'].fill=PatternFill('solid',fgColor=TEAL)
     _section(ws,6,'SNAPSHOT NORMALIZZATO')
     gate=gate or {}

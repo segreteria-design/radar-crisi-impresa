@@ -3,20 +3,21 @@ import io
 import pandas as pd
 import streamlit as st
 
-from radar_engine import extract_pdf_text, extract_fields_with_meta, validate_extraction, it_num
+from radar_engine import extract_pdf_text, extract_fields_with_meta, validate_extraction, it_num, ENGINE_SIGNATURE
 from security import require_login, logout_button
 from normalization_engine import suggest_adjustments, normalized_metrics, normalization_status, turnaround_plan, diagnostic_summary
 from business_plan_engine import project_5y, scenario_grid
 from reporting_v4 import make_v4_excel
 from azure_storage import configured as azure_configured, upload_bytes, dated_name
 
-VERSION='4.4'
+VERSION='4.5'
 st.set_page_config(page_title="Radar Crisi d'Impresa",page_icon='📊',layout='wide')
 st.markdown('''<style>.block-container{max-width:1320px;padding-top:1.3rem}.title{font-size:2.25rem;font-weight:780}.sub{color:#777;margin-bottom:1rem}.decision{font-size:1.25rem;font-weight:750;padding:.7rem 1rem;border-radius:10px;background:#f4f4f4}.small{font-size:.88rem;color:#666}</style>''',unsafe_allow_html=True)
 require_login(); logout_button()
-st.markdown('<div class="title">Radar Crisi d’Impresa — Turnaround 4.4</div>',unsafe_allow_html=True)
+st.markdown('<div class="title">Radar Crisi d’Impresa — Turnaround 4.5</div>',unsafe_allow_html=True)
 st.markdown('<div class="sub">Evidence-first extraction · Normalization Gate · Business Plan 5Y</div>',unsafe_allow_html=True)
-st.info('Principio 4.4: il business plan è BLOCCATO finché i dati contabili non sono coerenti, le rettifiche materiali non sono chiuse e il professionista non conferma la base normalizzata.')
+st.caption(f'Engine: {ENGINE_SIGNATURE}')
+st.info('Principio 4.5: il business plan è BLOCCATO finché i dati contabili non sono coerenti, le rettifiche materiali non sono chiuse e il professionista non conferma la base normalizzata.')
 
 if 'portfolio42' not in st.session_state: st.session_state.portfolio42=[]
 
@@ -63,7 +64,7 @@ with T1:
         for w in quality['warnings']: st.warning(w)
 
         st.subheader('2. Registro rettifiche evidence-based')
-        st.caption('La 4.4 non propone rettifiche sulla sola presenza di parole generiche. Serve evidenza di eccezionalità/non ricorrenza e un importo collegabile. Solo VERIFICATA entra nei calcoli; ESCLUSA chiude la proposta senza effetto.')
+        st.caption('La 4.5 non propone rettifiche sulla sola presenza di parole generiche. Serve evidenza di eccezionalità/non ricorrenza e un importo collegabile. Solo VERIFICATA entra nei calcoli; ESCLUSA chiude la proposta senza effetto.')
         base_cols=['stato','materialita','categoria','descrizione','importo','impatto_ricavi','impatto_ebitda','ricorrente','confidenza','pagina','fonte']
         adj=pd.DataFrame(st.session_state.get('adjustments42',[]))
         if adj.empty:
@@ -141,8 +142,8 @@ with T2:
         if any(x['dscr'] is not None and x['dscr']<1 for x in plan): st.error('Il Base presenta almeno un anno con DSCR < 1,0x: il debt service non è coperto dal CFADS ipotizzato.')
         elif all(x['dscr'] is None or x['dscr']>=1 for x in plan): st.success('Nel Base non emergono anni con DSCR < 1,0x. La conclusione vale esclusivamente per le assunzioni inserite e validate.')
         report=make_v4_excel(d,nm,st.session_state.get('adjustments42',[]),plan,actions,scenarios,diag,gate=gate,assumptions=ass)
-        filename=f"Radar_Turnaround_{(d.get('ragione_sociale') or 'Target').replace(' ','_')}_4.4.xlsx"
-        st.download_button('ESPORTA REPORT TURNAROUND 4.4',report,filename,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',use_container_width=True)
+        filename=f"Radar_Turnaround_{(d.get('ragione_sociale') or 'Target').replace(' ','_')}_4.5.xlsx"
+        st.download_button('ESPORTA REPORT TURNAROUND 4.5',report,filename,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',use_container_width=True)
         if st.button('SALVA TARGET NEL PORTAFOGLIO DI SESSIONE',use_container_width=True):
             st.session_state.portfolio42.append({'data':datetime.datetime.now().isoformat(timespec='minutes'),'societa':d.get('ragione_sociale'),'ebitda_reported':nm.get('ebitda_reported'),'ebitda_normalizzato':nm.get('ebitda_normalizzato'),'cfo':d.get('cash_flow_operativo'),'rettifiche_verificate':nm.get('n_rettifiche_verificate')}); st.success('Salvato nella sessione.')
         if azure_configured():
@@ -159,7 +160,7 @@ with T3:
         out=io.BytesIO(); df.to_excel(out,index=False); out.seek(0); st.download_button('ESPORTA PORTAFOGLIO',out,'Portafoglio_Radar_4.4.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 with T4:
-    st.markdown('''**Architettura 4.4**
+    st.markdown('''**Architettura 4.5**
 
 1. OCR ottimizzato per tabelle contabili e parsing page-aware.
 2. Estrazione prioritaria dai prospetti di bilancio; la Nota integrativa è usata come cross-check/rescue, non come sorgente indiscriminata di numeri.
