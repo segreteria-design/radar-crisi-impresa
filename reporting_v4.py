@@ -23,23 +23,24 @@ def _setup(ws,widths=None):
         for i,w in enumerate(widths,1): ws.column_dimensions[get_column_letter(i)].width=w
 
 
-def make_v4_excel(d,nm,adjustments,plan,actions,scenarios=None,diagnostic=None):
+def make_v4_excel(d,nm,adjustments,plan,actions,scenarios=None,diagnostic=None,gate=None,assumptions=None):
     wb=Workbook(); ws=wb.active; ws.title='EXECUTIVE_REPORT'
     _setup(ws,[25,22,22,22,22,22,22,22])
-    ws.merge_cells('A1:H1'); ws['A1']='RADAR TURNAROUND 4.1 — REPORT NORMALIZZATO'; ws['A1'].fill=PatternFill('solid',fgColor=NAVY); ws['A1'].font=Font(color=WHITE,bold=True,size=15)
-    ws.merge_cells('A3:H4'); ws['A3']='Il report separa dato reported, rettifiche professionali e dato normalizzato. Solo le rettifiche con stato VERIFICATA modificano EBITDA e ricavi operativi. Le proiezioni sono scenari gestionali e non attestazioni.'; ws['A3'].alignment=Alignment(wrap_text=True,vertical='top'); ws['A3'].fill=PatternFill('solid',fgColor=TEAL)
+    ws.merge_cells('A1:H1'); ws['A1']='RADAR TURNAROUND 4.2 — REPORT NORMALIZZATO'; ws['A1'].fill=PatternFill('solid',fgColor=NAVY); ws['A1'].font=Font(color=WHITE,bold=True,size=15)
+    ws.merge_cells('A3:H4'); ws['A3']='Il report separa dato reported, rettifiche professionali e dato normalizzato. Solo le rettifiche VERIFICATE modificano EBITDA e ricavi operativi. Il business plan è generabile solo dopo il Normalization Gate. Le proiezioni sono scenari gestionali e non attestazioni.'; ws['A3'].alignment=Alignment(wrap_text=True,vertical='top'); ws['A3'].fill=PatternFill('solid',fgColor=TEAL)
     _section(ws,6,'SNAPSHOT NORMALIZZATO')
-    labels=[('Ragione sociale',d.get('ragione_sociale'),'text'),('Ricavi vendite reported',d.get('ricavi_correnti'),'money'),('Valore produzione reported',d.get('valore_produzione'),'money'),('EBITDA reported',nm.get('ebitda_reported'),'money'),('Rettifiche EBITDA verificate',nm.get('rettifiche_ebitda'),'money'),('EBITDA normalizzato',nm.get('ebitda_normalizzato'),'money'),('Ricavi operativi normalizzati',nm.get('ricavi_operativi_normalizzati'),'money'),('EBITDA margin normalizzato',nm.get('ebitda_margin_normalizzato'),'pct'),('CFO reported',d.get('cash_flow_operativo'),'money'),('Debiti tributari',d.get('debiti_tributari'),'money'),('Debiti previdenziali',d.get('debiti_previdenziali'),'money'),('Debiti fornitori',d.get('debiti_fornitori'),'money')]
+    gate=gate or {}
+    labels=[('Ragione sociale',d.get('ragione_sociale'),'text'),('Normalization Gate','SUPERATO' if gate.get('ready') else 'BLOCCATO','text'),('Ricavi vendite reported',d.get('ricavi_correnti'),'money'),('Valore produzione reported',d.get('valore_produzione'),'money'),('EBITDA reported',nm.get('ebitda_reported'),'money'),('Rettifiche EBITDA verificate',nm.get('rettifiche_ebitda'),'money'),('EBITDA normalizzato',nm.get('ebitda_normalizzato'),'money'),('Ricavi operativi normalizzati',nm.get('ricavi_operativi_normalizzati'),'money'),('EBITDA margin normalizzato',nm.get('ebitda_margin_normalizzato'),'pct'),('CFO reported',d.get('cash_flow_operativo'),'money'),('Debiti tributari',d.get('debiti_tributari'),'money'),('Debiti previdenziali',d.get('debiti_previdenziali'),'money'),('Debiti fornitori',d.get('debiti_fornitori'),'money')]
     r=7
     for lab,val,typ in labels:
         ws.cell(r,1,lab); ws.cell(r,2,val)
         if typ=='money': ws.cell(r,2).number_format=MONEY
         elif typ=='pct': ws.cell(r,2).number_format=PCT
         r+=1
-    _section(ws,20,'DIAGNOSI')
-    for i,p in enumerate(diagnostic or [],21): ws.merge_cells(start_row=i,start_column=1,end_row=i,end_column=8); ws.cell(i,1,'• '+p); ws.cell(i,1).alignment=Alignment(wrap_text=True)
-    _section(ws,27,'TESI OPERATIVA')
-    ws.merge_cells('A28:H31'); ws['A28']='La sostenibilità deve essere dimostrata sul core business normalizzato e sulla capacità di generare cassa. Un utile civilistico positivo non sostituisce la verifica di ricorrenza dei ricavi, recuperabilità dei crediti, scadenze del passivo e DSCR prospettico.'; ws['A28'].alignment=Alignment(wrap_text=True,vertical='top')
+    _section(ws,21,'DIAGNOSI')
+    for i,p in enumerate(diagnostic or [],22): ws.merge_cells(start_row=i,start_column=1,end_row=i,end_column=8); ws.cell(i,1,'• '+p); ws.cell(i,1).alignment=Alignment(wrap_text=True)
+    _section(ws,28,'TESI OPERATIVA')
+    ws.merge_cells('A29:H32'); ws['A29']='La sostenibilità deve essere dimostrata sul core business normalizzato e sulla capacità di generare cassa. Un utile civilistico positivo non sostituisce la verifica di ricorrenza dei ricavi, recuperabilità dei crediti, scadenze del passivo e DSCR prospettico.'; ws['A29'].alignment=Alignment(wrap_text=True,vertical='top')
 
     raw=wb.create_sheet('DATI_REPORTED'); _setup(raw,[34,20,18,60])
     _section(raw,1,'DATI ESTRATTI / VALIDATI',4); raw.append(['Voce','Valore','Unità','Nota'])
@@ -48,13 +49,13 @@ def make_v4_excel(d,nm,adjustments,plan,actions,scenarios=None,diagnostic=None):
         raw.append([k,v,'€' if isinstance(v,(int,float)) else '', 'Input reported / validato'])
         if isinstance(v,(int,float)): raw.cell(raw.max_row,2).number_format=MONEY
 
-    adj=wb.create_sheet('RETTIFICHE'); _setup(adj,[18,28,55,18,18,18,18,18,18])
-    _section(adj,1,'REGISTRO RETTIFICHE DI NORMALIZZAZIONE',9)
-    cols=['Stato','Categoria','Descrizione','Importo','Impatto ricavi','Impatto EBITDA','Ricorrente','Confidenza','Effetto nel modello']
+    adj=wb.create_sheet('RETTIFICHE'); _setup(adj,[18,16,28,55,18,18,18,18,18,12,45,18])
+    _section(adj,1,'REGISTRO RETTIFICHE DI NORMALIZZAZIONE',12)
+    cols=['Stato','Materialità','Categoria','Descrizione','Importo','Impatto ricavi','Impatto EBITDA','Ricorrente','Confidenza','Pagina','Fonte','Effetto nel modello']
     adj.append(cols); _hdr(adj,2,len(cols))
     for a in adjustments:
-        adj.append([a.get('stato'),a.get('categoria'),a.get('descrizione'),a.get('importo'),a.get('impatto_ricavi'),a.get('impatto_ebitda'),a.get('ricorrente'),a.get('confidenza'),'INCLUSO' if str(a.get('stato','')).upper()=='VERIFICATA' else 'ESCLUSO'])
-        for c in (4,5,6): adj.cell(adj.max_row,c).number_format=MONEY
+        adj.append([a.get('stato'),a.get('materialita'),a.get('categoria'),a.get('descrizione'),a.get('importo'),a.get('impatto_ricavi'),a.get('impatto_ebitda'),a.get('ricorrente'),a.get('confidenza'),a.get('pagina'),a.get('fonte'),'INCLUSO' if str(a.get('stato','')).upper()=='VERIFICATA' else 'ESCLUSO'])
+        for c in (5,6,7): adj.cell(adj.max_row,c).number_format=MONEY
 
     bridge=wb.create_sheet('BRIDGE_NORMALIZZAZIONE'); _setup(bridge,[36,22,60])
     _section(bridge,1,'BRIDGE REPORTED → NORMALIZZATO',3)
@@ -79,6 +80,12 @@ def make_v4_excel(d,nm,adjustments,plan,actions,scenarios=None,diagnostic=None):
         for c,k in enumerate(keys,1): sc.cell(2,c,k); sc.cell(2,c).font=Font(bold=True); sc.cell(2,c).fill=PatternFill('solid',fgColor='D9EAF7')
         for r,row in enumerate(scenarios,3):
             for c,k in enumerate(keys,1): sc.cell(r,c,row[k]); sc.cell(r,c).number_format=MULT if 'dscr' in k else MONEY
+
+    ass=wb.create_sheet('ASSUNZIONI_BP'); _setup(ass,[36,70])
+    _section(ass,1,'ASSUNZIONI BUSINESS PLAN / ACTION BRIDGE',2)
+    ass.append(['Assunzione','Valore']); _hdr(ass,2,2)
+    for k,v in (assumptions or {}).items():
+        ass.append([k,str(v) if isinstance(v,(list,dict)) else v])
 
     act=wb.create_sheet('PIANO_RISANAMENTO'); _setup(act,[24,64,16,24,30])
     _section(act,1,'PIANO ANALITICO DI RISANAMENTO',5)
