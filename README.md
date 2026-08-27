@@ -1,34 +1,35 @@
-# Radar Crisi d'Impresa — Web App 3.0
+# Radar Crisi d'Impresa — Turnaround 4.1
 
-Versione pre-produzione con accesso riservato e privacy by design.
+Versione 4.1: normalizzazione obbligatoria prima dei KPI, business plan 5 anni, CFADS/DSCR, stress test e piano di risanamento.
 
-## File da aggiornare su GitHub
-Caricare/sostituire:
+## File da caricare su Streamlit/GitHub
 - `app.py`
 - `radar_engine.py`
+- `normalization_engine.py`
+- `business_plan_engine.py`
+- `reporting_v4.py`
 - `security.py`
-- `reporting.py`
+- `azure_storage.py`
 - `requirements.txt`
 - `packages.txt`
 
-La cartella `.streamlit` contiene solo `secrets.example.toml`: **non caricare mai credenziali reali nel repository**.
+I moduli legacy `reporting.py` non sono necessari alla 4.1.
 
-## Configurazione accesso su Streamlit Community Cloud
-Nella dashboard dell'app: **Settings / Impostazioni > Secrets** e inserire:
-
+## Streamlit Secrets minimi
 ```toml
-RADAR_USER = "nomeutente"
-RADAR_PASSWORD = "password-lunga-e-unica"
+RADAR_USER = "..."
+RADAR_PASSWORD = "..."
 ```
 
-Salvare. L'app si riavvia e mostra la schermata di login.
+## Azure opzionale
+Per archiviare i report sul container privato senza inserire credenziali nel repository:
+```toml
+AZURE_CONTAINER_SAS_URL = "https://<account>.blob.core.windows.net/<container>?<sas>"
+```
+Il SAS deve essere limitato al container e ai soli permessi necessari. Se il secret non è presente, l'app funziona normalmente senza archiviazione Azure.
 
-## Protezioni della 3.0
-- PDF elaborato in memoria e non salvato intenzionalmente dall'app.
-- Nessun archivio persistente: portafoglio solo di sessione.
-- Blocco scoring su dati incompleti/anomali.
-- Conferma umana obbligatoria.
-- Scheda decisionale e checklist documentale automatica.
-
-## Limite importante
-Questa versione è pre-produzione. Prima di usare bilanci/documenti professionali reali, verificare privacy, DPA/condizioni hosting, localizzazione e retention dei dati, autenticazione multiutente, logging, database e backup.
+## Metodo
+- Dato reported e dato normalizzato sono sempre separati.
+- Solo le rettifiche con stato `VERIFICATA` incidono su ricavi ed EBITDA.
+- L'EBITDA non è preso come verità dal bilancio: quando possibile è ricostruito da EBIT + D&A, escludendo per default le svalutazioni crediti dall'add-back.
+- Il business plan usa ricavi operativi normalizzati, capitale circolante, CFADS, debt service e DSCR.
